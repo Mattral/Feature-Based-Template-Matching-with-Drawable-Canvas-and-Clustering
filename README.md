@@ -1,2 +1,2 @@
-# Care Net AI WEb application 
+# Care Net AI Web application 
 1
