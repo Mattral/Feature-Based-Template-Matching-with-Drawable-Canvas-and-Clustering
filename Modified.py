@@ -30,8 +30,6 @@ def scale_image(image, percent, maxwh):
     result = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
     return result, percent
 
-import numpy as np
-import cv2
 
 def click_and_crop(event, x, y, flags, param):
     global box_points, button_down
