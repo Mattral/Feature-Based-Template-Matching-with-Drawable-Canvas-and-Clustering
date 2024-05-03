@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 from PIL import Image
+from streamlit_drawable_canvas import st_canvas
 
 def load_image(image_file):
     """Converts the uploaded file to an OpenCV image."""
@@ -13,8 +14,11 @@ def load_image(image_file):
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image
 
-def display_image(image, caption=""):
-    """Display an image with a caption."""
+def display_image(image, caption="", box=None):
+    """Display an image with a caption and optional bounding box."""
+    if box:
+        start_point, end_point = box
+        image = cv2.rectangle(image, start_point, end_point, (255, 0, 0), 2)
     image = Image.fromarray(image)
     st.image(image, caption=caption, use_column_width=True)
 
@@ -61,24 +65,43 @@ def main():
         display_image(img, "Uploaded Image")
         display_image(template, "Uploaded Template")
 
-        if st.button("Match Template"):
-            # Allow user to define crop area
-            x = st.slider('Select x coordinate for crop start:', 0, img.shape[1], 50)
-            y = st.slider('Select y coordinate for crop start:', 0, img.shape[0], 50)
-            width = st.slider('Select width:', 0, img.shape[1], 100)
-            height = st.slider('Select height:', 0, img.shape[0], 100)
+        # Setup canvas for user cropping
+        st.subheader("Draw cropping area on the template:")
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)",  # Use a transparent fill color
+            stroke_width=2,
+            stroke_color="#FFFFFF",
+            background_image=Image.open(template_file),
+            update_streamlit=True,
+            height=250,
+            width=300,
+            drawing_mode="rect",
+            key="canvas",
+        )
 
-            cropped_template = template[y:y+height, x:x+width]
-            display_image(cropped_template, "Cropped Template")
+        if canvas_result.json_data is not None:
+            objects = canvas_result.json_data["objects"]  # get the list of objects
+            if objects:
+                bbox = objects[0]
+                x = int(bbox["left"])
+                y = int(bbox["top"])
+                width = int(bbox["width"])
+                height = int(bbox["height"])
+                cropped_template = template[y:y+height, x:x+width]
+                display_image(cropped_template, "Cropped Template")
 
-            method_name = "TM_CCOEFF_NORMED"
-            rot_range = [0, 360, 10]  # Degrees
-            scale_range = [100, 150, 10]  # Percentage
-            best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
-            if best_match:
-                st.write("Best match at location:", best_match)
-            else:
-                st.error("No suitable match found.")
+                if st.button("Match Template"):
+                    method_name = "TM_CCOEFF_NORMED"
+                    rot_range = [0, 360, 10]  # Degrees
+                    scale_range = [100, 150, 10]  # Percentage
+                    best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
+                    if best_match:
+                        st.write("Best match at location:", best_match)
+                        match_top_left = best_match
+                        match_bottom_right = (best_match[0] + width, best_match[1] + height)
+                        display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
+                    else:
+                        st.error("No suitable match found.")
     else:
         st.warning("Please upload both images to proceed.")
 
