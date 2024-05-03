@@ -78,22 +78,30 @@ def main():
             drawing_mode="rect",
             key="canvas",
         )
-
+        
         if canvas_result.json_data is not None:
             objects = canvas_result.json_data.get("objects", [])
             if objects:
                 # Assuming the first object is the rectangle
                 rect = objects[0]
-                # Canvas gives x, y, width, and height in the data
                 x = int(rect['left'])
                 y = int(rect['top'])
                 width = int(rect['width'])
                 height = int(rect['height'])
-                # Calculate end coordinates
-                x_end = x + width
-                y_end = y + height
+                st.write(f"Rectangle coordinates: (x: {x}, y: {y}, width: {width}, height: {height})")  # Debug output
+        
+                # Adjust these if there's any canvas scaling
+                scale_x = image_width / canvas_width
+                scale_y = image_height / canvas_height
+        
+                # Applying scaling factor if the canvas was scaled
+                x = int(x * scale_x)
+                y = int(y * scale_y)
+                width = int(width * scale_x)
+                height = int(height * scale_y)
+        
                 # Crop the template image according to the rectangle coordinates
-                cropped_template = template[y:y_end, x:x_end]
+                cropped_template = template[y:y + height, x:x + width]
                 display_image(cropped_template, "Cropped Template")
         
                 if st.button("Match Template"):
