@@ -84,24 +84,19 @@ def main():
             if objects:
                 # Assuming the first object is the rectangle
                 rect = objects[0]
+                # Canvas gives x, y, width, and height in the data
                 x = int(rect['left'])
                 y = int(rect['top'])
                 width = int(rect['width'])
                 height = int(rect['height'])
-                st.write(f"Rectangle coordinates: (x: {x}, y: {y}, width: {width}, height: {height})")  # Debug output
-        
-                # Adjust these if there's any canvas scaling
-                scale_x = image_width / canvas_width
-                scale_y = image_height / canvas_height
-        
-                # Applying scaling factor if the canvas was scaled
-                x = int(x * scale_x)
-                y = int(y * scale_y)
-                width = int(width * scale_x)
-                height = int(height * scale_y)
-        
+                # Calculate end coordinates based on starting point
+                x_end = x + width
+                y_end = y + height
+                # Ensure that the rectangle does not exceed the image boundaries
+                x_end = min(x_end, template.shape[1])
+                y_end = min(y_end, template.shape[0])
                 # Crop the template image according to the rectangle coordinates
-                cropped_template = template[y:y + height, x:x + width]
+                cropped_template = template[y:y_end, x:x_end]
                 display_image(cropped_template, "Cropped Template")
         
                 if st.button("Match Template"):
@@ -116,6 +111,8 @@ def main():
                         display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
                     else:
                         st.error("No suitable match found.")
+
+
     else:
         st.warning("Please upload both images to proceed.")
 
