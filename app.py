@@ -80,16 +80,22 @@ def main():
         )
 
         if canvas_result.json_data is not None:
-            objects = canvas_result.json_data["objects"]  # get the list of objects
+            objects = canvas_result.json_data.get("objects", [])
             if objects:
-                bbox = objects[0]
-                x = int(bbox["left"])
-                y = int(bbox["top"])
-                width = int(bbox["width"])
-                height = int(bbox["height"])
-                cropped_template = template[y:y+height, x:x+width]
+                # Assuming the first object is the rectangle
+                rect = objects[0]
+                # Canvas gives x, y, width, and height in the data
+                x = int(rect['left'])
+                y = int(rect['top'])
+                width = int(rect['width'])
+                height = int(rect['height'])
+                # Calculate end coordinates
+                x_end = x + width
+                y_end = y + height
+                # Crop the template image according to the rectangle coordinates
+                cropped_template = template[y:y_end, x:x_end]
                 display_image(cropped_template, "Cropped Template")
-
+        
                 if st.button("Match Template"):
                     method_name = "TM_CCOEFF_NORMED"
                     rot_range = [0, 360, 10]  # Degrees
