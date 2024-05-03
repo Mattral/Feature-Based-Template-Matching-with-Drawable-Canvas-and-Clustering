@@ -67,7 +67,7 @@ def main():
 
         # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
-        canvas_width, canvas_height = 300, 250  # Match these to the 'width' and 'height' parameters in st_canvas
+        canvas_width, canvas_height = 600, 500  # Match these to the 'width' and 'height' parameters in st_canvas
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Use a transparent fill color
             stroke_width=2,
