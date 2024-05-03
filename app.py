@@ -14,14 +14,14 @@ def load_image(image_file):
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image
 
-def display_image(image, caption="", box=None):
     """Display an image with a caption and optional bounding box."""
-    if box:
-        start_point, end_point = box
-        image = cv2.rectangle(image, start_point, end_point, (255, 0, 0), 2)
-    image = Image.fromarray(image)
-    st.image(image, caption=caption, use_column_width=True)
 
+def display_image(image, title, box=None):
+    if box:
+        # Draw rectangle on the image
+        cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
+    st.image(image, caption=title, use_column_width=True)
+    
 def invariantMatchTemplate(image, template, method_name, rot_range, scale_range):
     method = eval(f"cv2.{method_name}")
     best_match = None
@@ -78,31 +78,31 @@ def main():
             drawing_mode="rect",
             key="canvas",
         )
-        
+    
         if canvas_result.json_data is not None:
             objects = canvas_result.json_data.get("objects", [])
             if objects:
                 # Assuming the first object is the rectangle
                 rect = objects[0]
-                # Canvas gives x, y, width, and height in the data
                 x = int(rect['left'])
                 y = int(rect['top'])
                 width = int(rect['width'])
                 height = int(rect['height'])
-                # Calculate end coordinates based on starting point
+        
+                # Debugging output
+                st.write(f"Drawn Rectangle Coordinates: x={x}, y={y}, width={width}, height={height}")
+        
                 x_end = x + width
                 y_end = y + height
-                # Ensure that the rectangle does not exceed the image boundaries
-                x_end = min(x_end, template.shape[1])
-                y_end = min(y_end, template.shape[0])
+        
                 # Crop the template image according to the rectangle coordinates
                 cropped_template = template[y:y_end, x:x_end]
                 display_image(cropped_template, "Cropped Template")
         
                 if st.button("Match Template"):
                     method_name = "TM_CCOEFF_NORMED"
-                    rot_range = [0, 360, 10]  # Degrees
-                    scale_range = [100, 150, 10]  # Percentage
+                    rot_range = [0, 360, 10]
+                    scale_range = [100, 150, 10]
                     best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
                     if best_match:
                         st.write("Best match at location:", best_match)
