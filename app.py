@@ -10,18 +10,16 @@ def load_image(image_file):
     if image.shape[-1] == 4:  # Convert RGBA to RGB
         image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
     else:
-        image is cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image
 
-def template_crop(template):
-    """Crop the template image based on some logic."""
-    # This is a dummy crop; you might want to replace it with actual coordinates
-    cropped = template[10:100, 10:100]  # Crop a portion of the image
-    return cropped
+def display_image(image, caption=""):
+    """Display an image with a caption."""
+    image = Image.fromarray(image)
+    st.image(image, caption=caption, use_column_width=True)
 
 def invariantMatchTemplate(image, template, method_name, rot_range, scale_range):
-    """Perform matching with rotation and scaling invariant."""
-    method = eval(f"cv2.{method_name}")  # Convert the method name to a cv2 method
+    method = eval(f"cv2.{method_name}")
     best_match = None
     best_score = -1
     for angle in np.arange(rot_range[0], rot_range[1], rot_range[2]):
@@ -37,7 +35,6 @@ def invariantMatchTemplate(image, template, method_name, rot_range, scale_range)
             result = cv2.matchTemplate(image, rotated_template, method)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-            # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
             if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
                 score = -min_val
                 location = min_loc
@@ -61,19 +58,27 @@ def main():
         img = load_image(img_file)
         template = load_image(template_file)
 
+        display_image(img, "Uploaded Image")
+        display_image(template, "Uploaded Template")
+
         if st.button("Match Template"):
-            cropped_template = template_crop(template)
-            if cropped_template is not None and cropped_template.size > 0:
-                method_name = "TM_CCOEFF_NORMED"
-                rot_range = [0, 360, 10]  # Degrees
-                scale_range = [100, 150, 10]  # Percentage
-                best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
-                if best_match:
-                    st.write("Best match at location:", best_match)
-                else:
-                    st.error("No suitable match found.")
+            # Allow user to define crop area
+            x = st.slider('Select x coordinate for crop start:', 0, img.shape[1], 50)
+            y = st.slider('Select y coordinate for crop start:', 0, img.shape[0], 50)
+            width = st.slider('Select width:', 0, img.shape[1], 100)
+            height = st.slider('Select height:', 0, img.shape[0], 100)
+
+            cropped_template = template[y:y+height, x:x+width]
+            display_image(cropped_template, "Cropped Template")
+
+            method_name = "TM_CCOEFF_NORMED"
+            rot_range = [0, 360, 10]  # Degrees
+            scale_range = [100, 150, 10]  # Percentage
+            best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
+            if best_match:
+                st.write("Best match at location:", best_match)
             else:
-                st.error("Cropping returned an empty image or failed.")
+                st.error("No suitable match found.")
     else:
         st.warning("Please upload both images to proceed.")
 
