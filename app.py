@@ -22,10 +22,9 @@ def display_image(image, title, box=None):
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
     
-def invariantMatchTemplate(image, template, method_name, rot_range, scale_range):
+def invariantMatchTemplate(image, template, method_name, rot_range, scale_range, threshold=0.8):
     method = eval(f"cv2.{method_name}")
-    best_match = None
-    best_score = -1
+    matches = []
     for angle in np.arange(rot_range[0], rot_range[1], rot_range[2]):
         for scale in np.arange(scale_range[0], scale_range[1], scale_range[2]):
             scaled_template = cv2.resize(template, None, fx=scale/100, fy=scale/100, interpolation=cv2.INTER_AREA)
@@ -37,20 +36,15 @@ def invariantMatchTemplate(image, template, method_name, rot_range, scale_range)
                 continue
 
             result = cv2.matchTemplate(image, rotated_template, method)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-
             if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-                score = -min_val
-                location = min_loc
+                loc = np.where(result <= 1-threshold)
             else:
-                score = max_val
-                location = max_loc
+                loc = np.where(result >= threshold)
 
-            if score > best_score:
-                best_score = score
-                best_match = location
+            for pt in zip(*loc[::-1]):  # Switch x and y coordinates
+                matches.append((pt, angle, scale))
 
-    return best_match
+    return matches
 
 def main():
     st.title("Template Matching App")
@@ -108,14 +102,15 @@ def main():
                     method_name = "TM_CCOEFF_NORMED"
                     rot_range = [0, 360, 10]
                     scale_range = [100, 150, 10]
-                    best_match = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range)
-                    if best_match:
-                        st.write("Best match at location:", best_match)
-                        match_top_left = best_match
-                        match_bottom_right = (best_match[0] + width, best_match[1] + height)
-                        display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
+                    matches = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range, threshold=0.8)
+                    if matches:
+                        for match in matches:
+                            match_top_left = match[0]
+                            match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
+                            display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
+                        st.write(f"Found {len(matches)} matches")
                     else:
-                        st.error("No suitable match found.")
+                        st.error("No suitable matches found.")
     else:
         st.warning("Please upload both images to proceed.")
 
