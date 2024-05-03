@@ -67,38 +67,43 @@ def main():
 
         # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
+        canvas_width, canvas_height = 300, 250  # Match these to the 'width' and 'height' parameters in st_canvas
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Use a transparent fill color
             stroke_width=2,
             stroke_color="#FFFFFF",
-            background_image=Image.open(template_file),
+            background_image=Image.open(template_file).resize((canvas_width, canvas_height)),
             update_streamlit=True,
-            height=250,
-            width=300,
+            height=canvas_height,
+            width=canvas_width,
             drawing_mode="rect",
             key="canvas",
         )
-    
+
         if canvas_result.json_data is not None:
             objects = canvas_result.json_data.get("objects", [])
             if objects:
                 # Assuming the first object is the rectangle
                 rect = objects[0]
-                x = int(rect['left'])
-                y = int(rect['top'])
-                width = int(rect['width'])
-                height = int(rect['height'])
-        
-                # Debugging output
-                st.write(f"Drawn Rectangle Coordinates: x={x}, y={y}, width={width}, height={height}")
-        
+                # Canvas to image scaling factors
+                scale_x = template.shape[1] / canvas_width
+                scale_y = template.shape[0] / canvas_height
+
+                # Adjusted coordinates
+                x = int(rect['left'] * scale_x)
+                y = int(rect['top'] * scale_y)
+                width = int(rect['width'] * scale_x)
+                height = int(rect['height'] * scale_y)
                 x_end = x + width
                 y_end = y + height
-        
-                # Crop the template image according to the rectangle coordinates
+
+                # Debugging output
+                st.write(f"Adjusted Rectangle Coordinates: x={x}, y={y}, width={width}, height={height}")
+
+                # Crop the template image according to the adjusted rectangle coordinates
                 cropped_template = template[y:y_end, x:x_end]
                 display_image(cropped_template, "Cropped Template")
-        
+
                 if st.button("Match Template"):
                     method_name = "TM_CCOEFF_NORMED"
                     rot_range = [0, 360, 10]
@@ -111,8 +116,6 @@ def main():
                         display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
                     else:
                         st.error("No suitable match found.")
-
-
     else:
         st.warning("Please upload both images to proceed.")
 
