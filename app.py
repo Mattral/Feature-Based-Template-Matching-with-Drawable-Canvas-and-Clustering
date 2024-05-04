@@ -99,6 +99,7 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
+                    display_img = img.copy()  # Make a deep copy to draw boxes on
                     method_name = "TM_CCOEFF_NORMED"
                     rot_range = [0, 360, 10]
                     scale_range = [100, 150, 10]
@@ -107,7 +108,8 @@ def main():
                         for match in matches:
                             match_top_left = match[0]
                             match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
-                            display_image(img, "Image with Matched Area", box=(match_top_left, match_bottom_right))
+                            cv2.rectangle(display_img, match_top_left, match_bottom_right, (0, 255, 0), 2)  # Draw on the copy
+                        display_image(display_img, "Image with Matched Areas")
                         st.write(f"Found {len(matches)} matches")
                     else:
                         st.error("No suitable matches found.")
