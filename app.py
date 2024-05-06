@@ -62,10 +62,8 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    # Implement your matching function here
-                    # Example: result_image = match_template(img, cropped_template)
-                    # display_image(result_image, "Matched Image")
-                    st.write("Placeholder for template matching function")
+                    result_img = match_template(img.copy(), cropped_template)  # Use copy of image for drawing
+                    display_image(result_img, "Image with Matched Areas")
     else:
         st.warning("Please upload both images to proceed.")
 
