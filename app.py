@@ -42,9 +42,57 @@ def invariantMatchTemplate(image, template, method_name, rot_range, scale_range,
                 loc = np.where(result >= threshold)
 
             for pt in zip(*loc[::-1]):  # Switch x and y coordinates
-                matches.append((pt, angle, scale))
+                if all(result[pt[1], pt[0]] == result[loc]):
+                    matches.append((pt, angle, scale))
 
-    return matches
+    # Applying non-maximum suppression to filter overlaps
+    final_matches = non_max_suppression(matches, overlapThresh=0.3)  # Define your own NMS function or use one from a library
+    return final_matches
+
+# Example NMS implementation (simplified and requires adjustments for actual use)
+def non_max_suppression(boxes, overlapThresh):
+    if len(boxes) == 0:
+        return []
+
+    # Extract the coordinates of the boxes
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    scores = boxes[:, 4]  # Assuming scores (or some similar metric) are passed in the boxes array
+
+    # Compute the area of the bounding boxes and sort the bounding boxes by the bottom-right y-coordinate of the bounding box
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    idxs = np.argsort(y2)
+
+    # Initialize the list of picked indexes
+    pick = []
+
+    while len(idxs) > 0:
+        # Grab the last index in the indexes list and add the index value to the list of picked indexes
+        last = len(idxs) - 1
+        i = idxs[last]
+        pick.append(i)
+
+        # Find the largest (x, y) coordinates for the start of the bounding box and the smallest (x, y) coordinates for the end of the bounding box
+        xx1 = np.maximum(x1[i], x1[idxs[:last]])
+        yy1 = np.maximum(y1[i], y1[idxs[:last]])
+        xx2 = np.minimum(x2[i], x2[idxs[:last]])
+        yy2 = np.minimum(y2[i], y2[idxs[:last]])
+
+        # Compute the width and height of the bounding box
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+
+        # Compute the ratio of overlap between the computed bounding box and the bounding boxes in the list
+        overlap = (w * h) / areas[idxs[:last]]
+
+        # Delete indexes from the index list that have
+        idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlapThresh)[0])))
+
+    return boxes[pick]
+
+
 
 def main():
     st.title("Template Matching App")
