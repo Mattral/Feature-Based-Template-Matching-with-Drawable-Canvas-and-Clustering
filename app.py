@@ -39,7 +39,7 @@ def match_template(img, template, max_angle=360, step=45):
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
         # Store the best matches and their positions
-        loc = np.where(res >= 0.5)  # Threshold for detecting matches
+        loc = np.where(res >= 0.7)  # Threshold for detecting matches
         for pt in zip(*loc[::-1]):  # Iterate over matches
             if not best_matches or all(np.linalg.norm(np.array(pt) - np.array(m['position'])) > 10 for m in best_matches):
                 best_matches.append({'position': pt, 'angle': angle, 'value': res[pt[::-1]]})
