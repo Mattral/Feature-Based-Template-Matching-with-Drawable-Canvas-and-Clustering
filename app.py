@@ -15,25 +15,38 @@ def load_image(image_file):
 
 def display_image(image, title, box=None):
     if box:
-        cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
+        cv2.rectangle(image, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
 
-def feature_match(image, template):
+def feature_match_and_box(image, template):
     orb = cv2.ORB_create(5000)
     kp1, des1 = orb.detectAndCompute(template, None)
     kp2, des2 = orb.detectAndCompute(image, None)
 
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = matcher.match(des1, des2)
-    matches = sorted(matches, key=lambda x: x.distance)
+    index_params = dict(algorithm=6, table_number=6, key_size=12, multi_probe_level=1)
+    search_params = dict(checks=50)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    matches = flann.knnMatch(des1, des2, k=2)
 
-    if len(matches) > 10:
-        matches = matches[:10]  # Take the top 10 matches
+    # Filter matches using the Lowe's ratio test
+    good_matches = []
+    for m, n in matches:
+        if m.distance < 0.75 * n.distance:
+            good_matches.append(m)
 
-    # Draw matches on the image
-    matched_image = cv2.drawMatches(template, kp1, image, kp2, matches, None, flags=2)
+    if len(good_matches) > 4:
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
-    return matched_image
+        if matrix is not None:
+            # Draw a rectangle around the matched region
+            h, w = template.shape[:2]
+            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
+            dst = cv2.perspectiveTransform(pts, matrix)
+            image = cv2.polylines(image, [np.int32(dst)], True, (0, 255, 0), 3, cv2.LINE_AA)
+
+    return image
 
 def main():
     st.title("Template Matching App")
@@ -80,8 +93,8 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    matched_img = feature_match(img, cropped_template)
-                    display_image(matched_img, "Matched Image")
+                    matched_img = feature_match_and_box(img, cropped_template)
+                    display_image(matched_img, "Image with Matched Area")
     else:
         st.warning("Please upload both images to proceed.")
 
