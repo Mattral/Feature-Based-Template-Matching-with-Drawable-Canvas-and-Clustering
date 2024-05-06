@@ -19,16 +19,36 @@ def display_image(image, title, box=None):
     if box:
         # Draw rectangle on the image
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
-    st.image(image, caption=title, use_column_width=True)
+    st.image(image, caption=title, use_column_width=True
 
-def match_template(img, template):
-    """Match template and highlight matching areas on the image."""
+def rotate_image(image, angle):
+    """Rotate an image."""
+    (h, w) = image.shape[:2]
+    center = (w / 2, h / 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h))
+    return rotated
+
+def match_template(img, template, max_angle=360, step=10):
+    """Match template with rotation and highlight all matching areas."""
+    best_matches = []
     method = cv2.TM_CCOEFF_NORMED
-    res = cv2.matchTemplate(img, template, method)
-    threshold = 0.6
-    loc = np.where(res >= threshold)
-    for pt in zip(*loc[::-1]):  # Switch x and y coordinates
-        cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
+    for angle in range(0, max_angle, step):
+        rotated_template = rotate_image(template, angle)
+        res = cv2.matchTemplate(img, rotated_template, method)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+
+        # Store the best matches and their positions
+        loc = np.where(res >= 0.6)  # Threshold for detecting matches
+        for pt in zip(*loc[::-1]):  # Iterate over matches
+            if not best_matches or all(np.linalg.norm(np.array(pt) - np.array(m['position'])) > 10 for m in best_matches):
+                best_matches.append({'position': pt, 'angle': angle, 'value': res[pt[::-1]]})
+
+    # Draw all matches
+    for match in best_matches:
+        pt = match['position']
+        cv2.rectangle(img, pt, (pt[0] + rotated_template.shape[1], pt[1] + rotated_template.shape[0]), (0, 255, 0), 2)
+
     return img
 
 def main():
