@@ -29,7 +29,7 @@ def rotate_image(image, angle):
     rotated = cv2.warpAffine(image, M, (w, h))
     return rotated
 
-def match_template(img, template, max_angle=360, step=10):
+def match_template(img, template, max_angle=360, step=45):
     """Match template with rotation and highlight all matching areas."""
     best_matches = []
     method = cv2.TM_CCOEFF_NORMED
@@ -39,7 +39,7 @@ def match_template(img, template, max_angle=360, step=10):
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
         # Store the best matches and their positions
-        loc = np.where(res >= 0.4)  # Threshold for detecting matches
+        loc = np.where(res >= 0.5)  # Threshold for detecting matches
         for pt in zip(*loc[::-1]):  # Iterate over matches
             if not best_matches or all(np.linalg.norm(np.array(pt) - np.array(m['position'])) > 10 for m in best_matches):
                 best_matches.append({'position': pt, 'angle': angle, 'value': res[pt[::-1]]})
