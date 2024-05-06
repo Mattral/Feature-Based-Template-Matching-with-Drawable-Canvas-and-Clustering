@@ -25,7 +25,7 @@ def match_template(img, template):
     """Match template and highlight matching areas on the image."""
     method = cv2.TM_CCOEFF_NORMED
     res = cv2.matchTemplate(img, template, method)
-    threshold = 0.8
+    threshold = 0.6
     loc = np.where(res >= threshold)
     for pt in zip(*loc[::-1]):  # Switch x and y coordinates
         cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
