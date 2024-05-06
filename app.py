@@ -34,6 +34,8 @@ def feature_match_and_box(image, template):
         if m.distance < 0.75 * n.distance:
             good_matches.append(m)
 
+    st.write(f"Number of good matches: {len(good_matches)}")
+
     if len(good_matches) > 4:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -44,9 +46,18 @@ def feature_match_and_box(image, template):
             h, w = template.shape[:2]
             pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
             dst = cv2.perspectiveTransform(pts, matrix)
-            image = cv2.polylines(image, [np.int32(dst)], True, (0, 255, 0), 3, cv2.LINE_AA)
+            bounding_box = cv2.boundingRect(dst)
+            st.write(f"Bounding box: {bounding_box}")
+            cv2.rectangle(image, (int(bounding_box[0]), int(bounding_box[1])), 
+                          (int(bounding_box[0] + bounding_box[2]), int(bounding_box[1] + bounding_box[3])), 
+                          (0, 255, 0), 2)
+        else:
+            st.error("No homography found. Check the quality of matches.")
+    else:
+        st.error("Not enough matches are found - {}/{}".format(len(good_matches), 4))
 
     return image
+
 
 def main():
     st.title("Template Matching App")
