@@ -14,40 +14,25 @@ def load_image(image_file):
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image
 
-    """Display an image with a caption and optional bounding box."""
-
 def display_image(image, title, box=None):
+    """Display an image with a caption and optional bounding box."""
     if box:
         # Draw rectangle on the image
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
-    
-def invariantMatchTemplate(image, template, method_name, rot_range, scale_range, threshold=0.5):
-    method = eval(f"cv2.{method_name}")
-    matches = []
-    for angle in np.arange(rot_range[0], rot_range[1], rot_range[2]):
-        for scale in np.arange(scale_range[0], scale_range[1], scale_range[2]):
-            scaled_template = cv2.resize(template, None, fx=scale/100, fy=scale/100, interpolation=cv2.INTER_AREA)
-            rotated_template = Image.fromarray(scaled_template)
-            rotated_template = rotated_template.rotate(angle, expand=True)
-            rotated_template = np.array(rotated_template)
 
-            if rotated_template.shape[0] > image.shape[0] or rotated_template.shape[1] > image.shape[1]:
-                continue
-
-            result = cv2.matchTemplate(image, rotated_template, method)
-            if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-                loc = np.where(result <= 1-threshold)
-            else:
-                loc = np.where(result >= threshold)
-
-            for pt in zip(*loc[::-1]):  # Switch x and y coordinates
-                matches.append((pt, angle, scale))
-
-    return matches
+def match_template(img, template):
+    """Match template and highlight matching areas on the image."""
+    method = cv2.TM_CCOEFF_NORMED
+    res = cv2.matchTemplate(img, template, method)
+    threshold = 0.8
+    loc = np.where(res >= threshold)
+    for pt in zip(*loc[::-1]):  # Switch x and y coordinates
+        cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
+    return img
 
 def main():
-    st.title("Template Matching App")
+    st.title("Template Matching with Drawable Canvas")
 
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
@@ -61,12 +46,12 @@ def main():
 
         # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
-        canvas_width, canvas_height = 300, 250  # Match these to the 'width' and 'height' parameters in st_canvas
+        canvas_width, canvas_height = template.shape[1], template.shape[0]
         canvas_result = st_canvas(
-            fill_color="rgba(255, 165, 0, 0.3)",  # Use a transparent fill color
+            fill_color="rgba(255, 165, 0, 0.3)",  # Transparent fill color
             stroke_width=2,
             stroke_color="#FFFFFF",
-            background_image=Image.open(template_file).resize((canvas_width, canvas_height)),
+            background_image=Image.fromarray(template),
             update_streamlit=True,
             height=canvas_height,
             width=canvas_width,
@@ -75,44 +60,19 @@ def main():
         )
 
         if canvas_result.json_data is not None:
-            objects = canvas_result.json_data.get("objects", [])
+            objects = canvas_result.json_data["objects"]
             if objects:
-                # Assuming the first object is the rectangle
                 rect = objects[0]
-                # Canvas to image scaling factors
-                scale_x = template.shape[1] / canvas_width
-                scale_y = template.shape[0] / canvas_height
-
-                # Adjusted coordinates
-                x = int(rect['left'] * scale_x)
-                y = int(rect['top'] * scale_y)
-                width = int(rect['width'] * scale_x)
-                height = int(rect['height'] * scale_y)
-                x_end = x + width
-                y_end = y + height
-
-                # Debugging output
-                st.write(f"Adjusted Rectangle Coordinates: x={x}, y={y}, width={width}, height={height}")
-
-                # Crop the template image according to the adjusted rectangle coordinates
-                cropped_template = template[y:y_end, x:x_end]
+                x = int(rect['left'])
+                y = int(rect['top'])
+                width = int(rect['width'])
+                height = int(rect['height'])
+                cropped_template = template[y:y + height, x:x + width]
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    display_img = img.copy()  # Make a deep copy to draw boxes on
-                    method_name = "TM_CCOEFF_NORMED"
-                    rot_range = [0, 360, 10]
-                    scale_range = [100, 150, 10]
-                    matches = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range, threshold=0.8)
-                    if matches:
-                        for match in matches:
-                            match_top_left = match[0]
-                            match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
-                            cv2.rectangle(display_img, match_top_left, match_bottom_right, (0, 255, 0), 2)  # Draw on the copy
-                        display_image(display_img, "Image with Matched Areas")
-                        st.write(f"Found {len(matches)} matches")
-                    else:
-                        st.error("No suitable matches found.")
+                    result_img = match_template(img.copy(), cropped_template)  # Use copy of image for drawing
+                    display_image(result_img, "Image with Matched Areas")
     else:
         st.warning("Please upload both images to proceed.")
 
