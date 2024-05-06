@@ -81,7 +81,9 @@ def match_template(img, template):
     res = cv2.matchTemplate(img, template, method)
     threshold = 0.8
     loc = np.where(res >= threshold)
-    w, h = template.shape[::-1]
+    
+    # Assuming template is a color image, extract only width and height
+    h, w = template.shape[:2]  # Only take height and width
 
     # Collect all potential boxes
     boxes = []
@@ -97,6 +99,7 @@ def match_template(img, template):
         cv2.rectangle(img, (startX, startY), (startX + width, startY + height), (0, 255, 0), 2)
 
     return img
+
 
 def main():
     st.title("Template Matching with Drawable Canvas")
