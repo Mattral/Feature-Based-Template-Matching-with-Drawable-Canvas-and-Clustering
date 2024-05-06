@@ -5,7 +5,6 @@ from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 
 def load_image(image_file):
-    """Converts the uploaded file to an OpenCV image."""
     image = Image.open(image_file)
     image = np.array(image)
     if image.shape[-1] == 4:  # Convert RGBA to RGB
@@ -14,88 +13,27 @@ def load_image(image_file):
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image
 
-    """Display an image with a caption and optional bounding box."""
-
 def display_image(image, title, box=None):
     if box:
-        # Draw rectangle on the image
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
-    
-def invariantMatchTemplate(image, template, method_name, rot_range, scale_range, threshold=0.8):
-    method = eval(f"cv2.{method_name}")
-    matches = []
-    for angle in np.arange(rot_range[0], rot_range[1], rot_range[2]):
-        for scale in np.arange(scale_range[0], scale_range[1], scale_range[2]):
-            scaled_template = cv2.resize(template, None, fx=scale/100, fy=scale/100, interpolation=cv2.INTER_AREA)
-            rotated_template = Image.fromarray(scaled_template)
-            rotated_template = rotated_template.rotate(angle, expand=True)
-            rotated_template = np.array(rotated_template)
 
-            if rotated_template.shape[0] > image.shape[0] or rotated_template.shape[1] > image.shape[1]:
-                continue
+def feature_match(image, template):
+    orb = cv2.ORB_create(5000)
+    kp1, des1 = orb.detectAndCompute(template, None)
+    kp2, des2 = orb.detectAndCompute(image, None)
 
-            result = cv2.matchTemplate(image, rotated_template, method)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = matcher.match(des1, des2)
+    matches = sorted(matches, key=lambda x: x.distance)
 
-            if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-                if min_val <= 1-threshold:
-                    matches.append((min_loc, angle, scale))
-            else:
-                if max_val >= threshold:
-                    matches.append((max_loc, angle, scale))
+    if len(matches) > 10:
+        matches = matches[:10]  # Take the top 10 matches
 
+    # Draw matches on the image
+    matched_image = cv2.drawMatches(template, kp1, image, kp2, matches, None, flags=2)
 
-    matches = non_max_suppression(matches, 0.5)
-    # return final_matches
-
-    return matches  # Return the appropriate list
-
-
-# Example NMS implementation (simplified and requires adjustments for actual use)
-def non_max_suppression(boxes, overlapThresh):
-    if len(boxes) == 0:
-        return []
-
-    # Extract the coordinates of the boxes
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
-    scores = boxes[:, 4]  # Assuming scores (or some similar metric) are passed in the boxes array
-
-    # Compute the area of the bounding boxes and sort the bounding boxes by the bottom-right y-coordinate of the bounding box
-    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-    idxs = np.argsort(y2)
-
-    # Initialize the list of picked indexes
-    pick = []
-
-    while len(idxs) > 0:
-        # Grab the last index in the indexes list and add the index value to the list of picked indexes
-        last = len(idxs) - 1
-        i = idxs[last]
-        pick.append(i)
-
-        # Find the largest (x, y) coordinates for the start of the bounding box and the smallest (x, y) coordinates for the end of the bounding box
-        xx1 = np.maximum(x1[i], x1[idxs[:last]])
-        yy1 = np.maximum(y1[i], y1[idxs[:last]])
-        xx2 = np.minimum(x2[i], x2[idxs[:last]])
-        yy2 = np.minimum(y2[i], y2[idxs[:last]])
-
-        # Compute the width and height of the bounding box
-        w = np.maximum(0, xx2 - xx1 + 1)
-        h = np.maximum(0, yy2 - yy1 + 1)
-
-        # Compute the ratio of overlap between the computed bounding box and the bounding boxes in the list
-        overlap = (w * h) / areas[idxs[:last]]
-
-        # Delete indexes from the index list that have
-        idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlapThresh)[0])))
-
-    return boxes[pick]
-
-
+    return matched_image
 
 def main():
     st.title("Template Matching App")
@@ -110,11 +48,10 @@ def main():
         display_image(img, "Uploaded Image")
         display_image(template, "Uploaded Template")
 
-        # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
-        canvas_width, canvas_height = 300, 250  # Match these to the 'width' and 'height' parameters in st_canvas
+        canvas_width, canvas_height = 300, 250
         canvas_result = st_canvas(
-            fill_color="rgba(255, 165, 0, 0.3)",  # Use a transparent fill color
+            fill_color="rgba(255, 165, 0, 0.3)", 
             stroke_width=2,
             stroke_color="#FFFFFF",
             background_image=Image.open(template_file).resize((canvas_width, canvas_height)),
@@ -128,13 +65,10 @@ def main():
         if canvas_result.json_data is not None:
             objects = canvas_result.json_data.get("objects", [])
             if objects:
-                # Assuming the first object is the rectangle
                 rect = objects[0]
-                # Canvas to image scaling factors
                 scale_x = template.shape[1] / canvas_width
                 scale_y = template.shape[0] / canvas_height
 
-                # Adjusted coordinates
                 x = int(rect['left'] * scale_x)
                 y = int(rect['top'] * scale_y)
                 width = int(rect['width'] * scale_x)
@@ -142,30 +76,12 @@ def main():
                 x_end = x + width
                 y_end = y + height
 
-                # Debugging output
-                st.write(f"Adjusted Rectangle Coordinates: x={x}, y={y}, width={width}, height={height}")
-
-                # Crop the template image according to the adjusted rectangle coordinates
                 cropped_template = template[y:y_end, x:x_end]
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    display_img = img.copy()  # Make a deep copy to draw boxes on
-                    method_name = "TM_CCOEFF_NORMED"
-                    rot_range = [0, 360, 10]
-                    scale_range = [100, 150, 10]
-                    matches = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range, threshold=0.8)
-                    if matches:
-                        for ficmatch in matches:
-                            match_top_left = match[0]
-                            match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
-                            cv2.rectangle(display_img, match_top_left, match_bottom_right, (0, 255, 0), 2)  # Draw on the copy
-                        # Display the final image with all matches drawn on it
-                        display_image(display_img, "Image with Matched Areas")
-                        st.write(f"Found {len(matches)} matches")
-                    else:
-                        st.error("No suitable matches found.")
-
+                    matched_img = feature_match(img, cropped_template)
+                    display_image(matched_img, "Matched Image")
     else:
         st.warning("Please upload both images to proceed.")
 
