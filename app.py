@@ -36,18 +36,21 @@ def invariantMatchTemplate(image, template, method_name, rot_range, scale_range,
                 continue
 
             result = cv2.matchTemplate(image, rotated_template, method)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
             if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-                loc = np.where(result <= 1-threshold)
+                if min_val <= 1-threshold:
+                    matches.append((min_loc, angle, scale))
             else:
-                loc = np.where(result >= threshold)
+                if max_val >= threshold:
+                    matches.append((max_loc, angle, scale))
 
-            for pt in zip(*loc[::-1]):  # Switch x and y coordinates
-                if all(result[pt[1], pt[0]] == result[loc]):
-                    matches.append((pt, angle, scale))
 
-    # Applying non-maximum suppression to filter overlaps
-    final_matches = non_max_suppression(matches, overlapThresh=0.3)  # Define your own NMS function or use one from a library
-    return final_matches
+    matches = non_max_suppression(matches, 0.5)
+    # return final_matches
+
+    return matches  # Return the appropriate list
+
 
 # Example NMS implementation (simplified and requires adjustments for actual use)
 def non_max_suppression(boxes, overlapThresh):
@@ -153,7 +156,7 @@ def main():
                     scale_range = [100, 150, 10]
                     matches = invariantMatchTemplate(img, cropped_template, method_name, rot_range, scale_range, threshold=0.8)
                     if matches:
-                        for match in matches:
+                        for ficmatch in matches:
                             match_top_left = match[0]
                             match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
                             cv2.rectangle(display_img, match_top_left, match_bottom_right, (0, 255, 0), 2)  # Draw on the copy
