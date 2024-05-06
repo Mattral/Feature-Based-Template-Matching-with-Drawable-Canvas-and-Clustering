@@ -109,10 +109,12 @@ def main():
                             match_top_left = match[0]
                             match_bottom_right = (match_top_left[0] + width, match_top_left[1] + height)
                             cv2.rectangle(display_img, match_top_left, match_bottom_right, (0, 255, 0), 2)  # Draw on the copy
+                        # Display the final image with all matches drawn on it
                         display_image(display_img, "Image with Matched Areas")
                         st.write(f"Found {len(matches)} matches")
                     else:
                         st.error("No suitable matches found.")
+
     else:
         st.warning("Please upload both images to proceed.")
 
