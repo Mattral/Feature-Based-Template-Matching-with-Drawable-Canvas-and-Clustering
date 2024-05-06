@@ -21,6 +21,16 @@ def display_image(image, title, box=None):
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
 
+def match_template(img, template):
+    """Match template and highlight matching areas on the image."""
+    method = cv2.TM_CCOEFF_NORMED
+    res = cv2.matchTemplate(img, template, method)
+    threshold = 0.8
+    loc = np.where(res >= threshold)
+    for pt in zip(*loc[::-1]):  # Switch x and y coordinates
+        cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
+    return img
+
 def main():
     st.title("Template Matching with Drawable Canvas")
 
@@ -36,7 +46,6 @@ def main():
 
         # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
-        # Setup canvas dimensions to match the uploaded template
         canvas_width, canvas_height = template.shape[1], template.shape[0]
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent fill color
