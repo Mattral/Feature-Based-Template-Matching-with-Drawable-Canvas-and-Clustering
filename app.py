@@ -19,7 +19,7 @@ def display_image(image, title, box=None):
     if box:
         # Draw rectangle on the image
         cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
-    st.image(image, caption=title, use_column_width=True
+    st.image(image, caption=title, use_column_width=True)
 
 def rotate_image(image, angle):
     """Rotate an image."""
