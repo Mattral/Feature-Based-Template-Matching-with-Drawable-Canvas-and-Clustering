@@ -79,7 +79,7 @@ def match_template(img, template):
     """Match template and highlight matching areas on the image."""
     method = cv2.TM_CCOEFF_NORMED
     res = cv2.matchTemplate(img, template, method)
-    threshold = 0.8
+    threshold = 0.5
     loc = np.where(res >= threshold)
     
     # Assuming template is a color image, extract only width and height
