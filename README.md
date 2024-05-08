@@ -60,10 +60,5 @@ This project is licensed under the Apache License - see the LICENSE file for det
 
 ---
 Feel free to star this repository if you find it useful! For help and support, create an issue, and I'll get back to you.
-```
 
-### Notes:
 
-- **GitHub URL Placeholder**: Make sure to replace `https://github.com/yourusername/feature-based-template-matching-with-drawable-canvas.git` with the actual URL of your GitHub repository.
-- **Customization**: You might want to add screenshots to enhance the visual appeal and understanding or include a section for contributions if you are open to collaborations.
-- **License Information**: Confirm the type of license under which you are releasing the project, as I've assumed MIT in this example. Adjust accordingly based on your choice.
