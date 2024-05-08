@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 from sklearn.cluster import DBSCAN
 from streamlit_drawable_canvas import st_canvas
+from streamlit import progress
+
 
 def load_image(image_file):
     """Converts the uploaded file to an OpenCV image."""
@@ -108,15 +110,21 @@ def main():
                 cropped_template = template[y:y + height, x:x + width]
                 display_image(cropped_template, "Cropped Template")
 
+                # In your main function where you process the images:
                 if st.button("Match Template"):
-                    matched_img, box_img, labels = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio, eps, min_samples)
-                    if matched_img is not None:
-                        if labels is not None:
-                            st.write(f"Labels from DBSCAN: {np.unique(labels)}")  # Debug output
-                        st.subheader("Image with Match Points")
-                        display_image(matched_img, "Match Points Image")
-                        st.subheader("Image with Matched Area Box")
-                        display_image(box_img, "Bounding Box Image")
+                    with st.spinner("Processing images..."):
+                        matched_img, box_img, labels = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio, eps, min_samples)
+                        if matched_img is not None:
+                            st.success("Processing complete!")
+                            if labels is not None:
+                                st.write(f"Labels from DBSCAN: {np.unique(labels)}")  # Debug output
+                            st.subheader("Image with Match Points")
+                            display_image(matched_img, "Match Points Image")
+                            st.subheader("Image with Matched Area Box")
+                            display_image(box_img, "Bounding Box Image")
+                        else:
+                            st.error("Failed to process images. Try adjusting the parameters.")
+
 
     else:
         st.warning("Please upload both images to proceed.")
