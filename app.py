@@ -69,8 +69,10 @@ def main():
     
     lowe_ratio = st.sidebar.slider('Adjust Lowe Ratio', min_value=0.0, max_value=1.0, value=0.75, step=0.05,
                                    help="Lower values of the ratio are more strict, reducing false positives but may miss some correct matches. Higher values increase the number of matches but may include more incorrect ones.")
-    eps = st.sidebar.slider('DBSCAN eps', min_value=10, max_value=100, value=20, step=5)
-    min_samples = st.sidebar.slider('DBSCAN min_samples', min_value=1, max_value=10, value=3, step=1)
+    eps = st.sidebar.slider('DBSCAN eps', min_value=10, max_value=100, value=40, step=5,
+                            help="Sets the maximum distance between two points to be considered as part of the same cluster. Increasing this value can lead to more points being clustered together, while decreasing it may result in more, smaller clusters.")
+    min_samples = st.sidebar.slider('DBSCAN min_samples', min_value=1, max_value=4, value=3, step=1,
+                                    help="Defines the minimum number of points required to form a dense region. Higher values result in fewer, more significant clusters, while lower values may result in noise being included as part of clusters.")
 
     if img_file and template_file:
         img = load_image(img_file)
