@@ -18,7 +18,8 @@ def display_image(image, title, box=None):
     """Display an image with a caption and optional bounding box."""
     st.image(image, caption=title, use_column_width=True)
 
-def apply_sift_matching(img, template, lowe_ratio=0.75):
+def apply_sift_matching(img, template, lowe_ratio):
+    """Apply SIFT matching between an image and a template, using a variable Lowe ratio."""
     sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
     keypoints2, descriptors2 = sift.detectAndCompute(template, None)
@@ -54,6 +55,8 @@ def main():
 
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
+    lowe_ratio = st.sidebar.slider('Adjust Lowe Ratio', min_value=0.0, max_value=1.0, value=0.75, step=0.05,
+                                   help="Lower values of the ratio are more strict, reducing false positives but may miss some correct matches. Higher values increase the number of matches but may include more incorrect ones.")
 
     if img_file and template_file:
         img = load_image(img_file)
@@ -90,7 +93,7 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    matched_img, box_img = apply_sift_matching(img.copy(), cropped_template)
+                    matched_img, box_img = apply_sift_matching(img.copy(), cropped_template, lowe_ratio)
                     st.subheader("Image with Match Points")
                     display_image(matched_img, "Match Points Image")
                     st.subheader("Image with Matched Area Box")
