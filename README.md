@@ -2,8 +2,9 @@
 
 This repository contains a Streamlit application that demonstrates feature-based template matching using the SIFT (Scale-Invariant Feature Transform) algorithm, enhanced with DBSCAN clustering for robust localization. Users can upload an image and a template, then manually select the area of interest within the template using a drawable canvas. The application uses the adjusted Lowe ratio to match features and DBSCAN clustering to identify and localize the matched region in the main image.
 
-latest ver -
-old ver -
+latest ver -https://feature-based-template-matching.streamlit.app/
+
+old ver - https://match-img.streamlit.app/
 
 ## Features
 
