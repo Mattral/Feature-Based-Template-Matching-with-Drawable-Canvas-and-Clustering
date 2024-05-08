@@ -4,3 +4,4 @@ numpy
 matplotlib==3.8.2
 pillow
 streamlit-drawable-canvas==0.8.0
+scikit-learn
