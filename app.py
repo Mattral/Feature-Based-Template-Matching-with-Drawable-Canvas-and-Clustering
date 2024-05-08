@@ -5,6 +5,7 @@ from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 
 def load_image(image_file):
+    """Converts the uploaded file to an OpenCV image."""
     image = Image.open(image_file)
     image = np.array(image)
     if image.shape[-1] == 4:  # Convert RGBA to RGB
@@ -14,29 +15,27 @@ def load_image(image_file):
     return image
 
 def display_image(image, title, box=None):
+    """Display an image with a caption and optional bounding box."""
+    if box:
+        # Draw rectangle on the image
+        cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
 
-def apply_sift_matching(img, template, lowe_ratio=0.75):
-    sift = cv2.SIFT_create()
-    keypoints1, descriptors1 = sift.detectAndCompute(img, None)
-    keypoints2, descriptors2 = sift.detectAndCompute(template, None)
-    matcher = cv2.BFMatcher()
-    matches = matcher.knnMatch(descriptors1, descriptors2, k=2)
-    good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
-
-    if len(good_matches) > 4:
-        result_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
-        return result_img
-    else:
-        st.error("Not enough matches were found - try adjusting the parameters or selecting a different template region.")
-        return img
+def match_template(img, template):
+    """Match template and highlight matching areas on the image."""
+    method = cv2.TM_CCOEFF_NORMED
+    res = cv2.matchTemplate(img, template, method)
+    threshold = 0.6
+    loc = np.where(res >= threshold)
+    for pt in zip(*loc[::-1]):  # Switch x and y coordinates
+        cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
+    return img
 
 def main():
-    st.title("Feature-Based Template Matching with Drawable Canvas")
+    st.title("Template Matching with Drawable Canvas")
 
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
-    lowe_ratio = st.sidebar.slider("Lowe's ratio test threshold", 0.4, 0.9, 0.75, 0.05)
 
     if img_file and template_file:
         img = load_image(img_file)
@@ -45,26 +44,35 @@ def main():
         display_image(img, "Uploaded Image")
         display_image(template, "Uploaded Template")
 
+        # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
+        canvas_width, canvas_height = template.shape[1], template.shape[0]
         canvas_result = st_canvas(
-            fill_color="rgba(255, 165, 0, 0.3)", stroke_width=2,
-            stroke_color="#FFFFFF", background_image=Image.fromarray(template),
-            update_streamlit=True, drawing_mode="rect", key="canvas",
+            fill_color="rgba(255, 165, 0, 0.3)",  # Transparent fill color
+            stroke_width=2,
+            stroke_color="#FFFFFF",
+            background_image=Image.fromarray(template),
+            update_streamlit=True,
+            height=canvas_height,
+            width=canvas_width,
+            drawing_mode="rect",
+            key="canvas",
         )
 
         if canvas_result.json_data is not None:
             objects = canvas_result.json_data["objects"]
             if objects:
                 rect = objects[0]
-                x, y = int(rect['left']), int(rect['top'])
-                width, height = int(rect['width']), int(rect['height'])
-                cropped_template = template[y:y+height, x:x+width]
+                x = int(rect['left'])
+                y = int(rect['top'])
+                width = int(rect['width'])
+                height = int(rect['height'])
+                cropped_template = template[y:y + height, x:x + width]
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    with st.spinner("Matching..."):
-                        result_img = apply_sift_matching(img, cropped_template, lowe_ratio)
-                        display_image(result_img, "Image with Matched Areas")
+                    result_img = match_template(img.copy(), cropped_template)  # Use copy of image for drawing
+                    display_image(result_img, "Image with Matched Areas")
     else:
         st.warning("Please upload both images to proceed.")
 
