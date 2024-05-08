@@ -20,7 +20,6 @@ def display_image(image, title, box=None):
     st.image(image, caption=title, use_column_width=True)
 
 def apply_sift_and_cluster(img, template, lowe_ratio, eps, min_samples):
-    """Apply SIFT matching and clustering to find and highlight multiple instances of a template."""
     sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
     keypoints2, descriptors2 = sift.detectAndCompute(template, None)
@@ -30,7 +29,7 @@ def apply_sift_and_cluster(img, template, lowe_ratio, eps, min_samples):
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
     if not good_matches:
         st.write("Not enough good matches were found.")
-        return None, img
+        return None, img, None
 
     points = np.array([keypoints1[m.queryIdx].pt for m in good_matches], dtype=np.float32)
 
@@ -41,18 +40,24 @@ def apply_sift_and_cluster(img, template, lowe_ratio, eps, min_samples):
     match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
     box_img = img.copy()
 
+    # Debug: visualize clustering results
+    for point, label in zip(points, labels):
+        cv2.circle(match_img, (int(point[0]), int(point[1])), 5, (255, 0, 0) if label == -1 else (0, 255, 0), -1)
+
     unique_labels = set(labels)
     for label in unique_labels:
         if label == -1:
-            continue
+            continue  # skip noise as classified by DBSCAN
         class_member_mask = (labels == label)
         xy = points[class_member_mask]
+        if xy.size == 0:
+            continue
         rect = cv2.minAreaRect(xy)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
         cv2.drawContours(box_img, [box], 0, (255, 0, 0), 2)
 
-    return match_img, box_img
+    return match_img, box_img, labels  # Include labels for further debugging
 
 
 def main():
@@ -102,8 +107,10 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    matched_img, box_img = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio)
+                    matched_img, box_img, labels = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio, eps, min_samples)
                     if matched_img is not None:
+                        if labels is not None:
+                            st.write(f"Labels from DBSCAN: {np.unique(labels)}")  # Debug output
                         st.subheader("Image with Match Points")
                         display_image(matched_img, "Match Points Image")
                         st.subheader("Image with Matched Area Box")
