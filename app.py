@@ -19,19 +19,30 @@ def display_image(image, title, box=None):
     st.image(image, caption=title, use_column_width=True)
 
 def apply_sift_matching(img, template, lowe_ratio=0.75):
-    """Apply SIFT matching between an image and a template."""
-    sift = cv2.SIFT_create()  # Initialize SIFT detector
+    """Apply SIFT matching between an image and a template, and draw a bounding box around matched area."""
+    sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
     keypoints2, descriptors2 = sift.detectAndCompute(template, None)
     matcher = cv2.BFMatcher()
     matches = matcher.knnMatch(descriptors1, descriptors2, k=2)
 
-    # Apply Lowe's ratio test
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
 
     # Draw matches
-    result_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
-    return result_img
+    match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
+
+    if len(good_matches) > 4:
+        src_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
+        dst_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
+        matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        if matrix is not None:
+            # Draw a bounding box around the detected region
+            h, w = template.shape[:2]
+            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
+            dst = cv2.perspectiveTransform(pts, matrix)
+            img = cv2.polylines(img, [np.int32(dst)], True, (0,255,0), 3, cv2.LINE_AA)
+
+    return img, match_img
 
 def main():
     st.title("Feature-Based Template Matching with Drawable Canvas")
@@ -74,8 +85,12 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    result_img = apply_sift_matching(img.copy(), cropped_template)
-                    display_image(result_img, "Image with Matched Areas")
+                    matched_img, box_img = apply_sift_matching(img.copy(), cropped_template)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        display_image(matched_img, "Image with Match Points")
+                    with col2:
+                        display_image(box_img, "Image with Matched Area Box")
     else:
         st.warning("Please upload both images to proceed.")
 
