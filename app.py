@@ -34,21 +34,22 @@ def apply_sift_matching(img, template, lowe_ratio):
     match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
 
     box_img = img.copy()
-    if len(good_matches) > 4:
+    if len(good_matches) >= 10:  # Increased from 4 to 10
         src_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
         dst_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
         matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        if matrix is not None:
+        if matrix is not None and mask.sum() > 8:  # Check that a sufficient number of points agree
             h, w = template.shape[:2]
             pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
             dst = cv2.perspectiveTransform(pts, matrix)
             box_img = cv2.polylines(box_img, [np.int32(dst)], True, (0, 255, 0), 3, cv2.LINE_AA)
         else:
-            st.write("Homography could not be computed successfully.")
+            st.write("Homography could not be computed successfully or insufficient inliers.")
     else:
-        st.write("Not enough good matches are found - {}/{}".format(len(good_matches), 5))
+        st.write(f"Not enough good matches are found - {len(good_matches)}/{10}")
 
     return match_img, box_img
+
 
 def main():
     st.title("Feature-Based Template Matching with Drawable Canvas")
