@@ -19,7 +19,7 @@ def display_image(image, title, box=None):
     """Display an image with a caption and optional bounding box."""
     st.image(image, caption=title, use_column_width=True)
 
-def apply_sift_and_cluster(img, template, lowe_ratio):
+def apply_sift_and_cluster(img, template, lowe_ratio, eps, min_samples):
     """Apply SIFT matching and clustering to find and highlight multiple instances of a template."""
     sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
@@ -28,15 +28,14 @@ def apply_sift_and_cluster(img, template, lowe_ratio):
     matches = matcher.knnMatch(descriptors1, descriptors2, k=2)
 
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
-    
-    if len(good_matches) < 4:
-        st.write("Not enough matches were found.")
+    if not good_matches:
+        st.write("Not enough good matches were found.")
         return None, img
 
     points = np.array([keypoints1[m.queryIdx].pt for m in good_matches], dtype=np.float32)
 
     # Clustering of matched points
-    dbscan = DBSCAN(eps=20, min_samples=3)  # tweak these parameters as needed
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
     labels = dbscan.fit_predict(points)
 
     match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
@@ -45,15 +44,19 @@ def apply_sift_and_cluster(img, template, lowe_ratio):
     unique_labels = set(labels)
     for label in unique_labels:
         if label == -1:
-            continue  # Noise
+            continue
         class_member_mask = (labels == label)
         xy = points[class_member_mask]
         rect = cv2.minAreaRect(xy)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
-        cv2.drawContours(box_img, [box], 0, (0, 255, 0), 2)
+        cv2.drawContours(box_img, [box], 0, (255, 0, 0), 2)
 
     return match_img, box_img
+
+# Streamlit sliders for parameter tuning
+eps = st.sidebar.slider('DBSCAN eps', min_value=10, max_value=100, value=20, step=5)
+min_samples = st.sidebar.slider('DBSCAN min_samples', min_value=1, max_value=10, value=3, step=1)
 
 def main():
     st.title("Feature-Based Template Matching with Drawable Canvas and Clustering")
