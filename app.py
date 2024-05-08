@@ -28,9 +28,10 @@ def apply_sift_matching(img, template, lowe_ratio=0.75):
 
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
 
-    # Draw matches
+    # Draw matches on a separate image to display keypoints
     match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
 
+    box_img = img.copy()  # Use a copy of the image for drawing the bounding box
     if len(good_matches) > 4:
         src_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
         dst_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
@@ -40,9 +41,9 @@ def apply_sift_matching(img, template, lowe_ratio=0.75):
             h, w = template.shape[:2]
             pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
             dst = cv2.perspectiveTransform(pts, matrix)
-            img = cv2.polylines(img, [np.int32(dst)], True, (0,255,0), 3, cv2.LINE_AA)
+            box_img = cv2.polylines(box_img, [np.int32(dst)], True, (0,255,0), 3, cv2.LINE_AA)
 
-    return img, match_img
+    return match_img, box_img  # Note the order and content of returns are as intended now
 
 def main():
     st.title("Feature-Based Template Matching with Drawable Canvas")
