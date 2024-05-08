@@ -16,26 +16,26 @@ def load_image(image_file):
 
 def display_image(image, title, box=None):
     """Display an image with a caption and optional bounding box."""
-    if box:
-        # Draw rectangle on the image
-        cv2.rectangle(image, box[0], box[1], color=(0, 255, 0), thickness=2)
     st.image(image, caption=title, use_column_width=True)
 
-def match_template(img, template):
-    """Match template and highlight matching areas on the image."""
-    method = cv2.TM_CCOEFF_NORMED
-    res = cv2.matchTemplate(img, template, method)
-    threshold = 0.6
-    loc = np.where(res >= threshold)
-    for pt in zip(*loc[::-1]):  # Switch x and y coordinates
-        cv2.rectangle(img, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
-    return img
+def apply_sift_matching(img, template, lowe_ratio=0.75):
+    """Apply SIFT matching between an image and a template."""
+    sift = cv2.SIFT_create()  # Initialize SIFT detector
+    keypoints1, descriptors1 = sift.detectAndCompute(img, None)
+    keypoints2, descriptors2 = sift.detectAndCompute(template, None)
+    matcher = cv2.BFMatcher()
+    matches = matcher.knnMatch(descriptors1, descriptors2, k=2)
+
+    # Apply Lowe's ratio test
+    good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
+
+    # Draw matches
+    result_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
+    return result_img
 
 def main():
-    st.title("Interactive Template Matching")
+    st.title("Feature-Based Template Matching with Drawable Canvas")
 
-    # Upload sections in the sidebar
-    st.sidebar.header("Upload Images")
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
 
@@ -43,14 +43,12 @@ def main():
         img = load_image(img_file)
         template = load_image(template_file)
 
-        st.subheader("Uploaded Images")
         col1, col2 = st.columns(2)
         with col1:
-            display_image(img, "Original Image")
+            display_image(img, "Uploaded Image")
         with col2:
-            display_image(template, "Template Image")
+            display_image(template, "Uploaded Template")
 
-        # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent fill color
@@ -73,12 +71,10 @@ def main():
                 width = int(rect['width'])
                 height = int(rect['height'])
                 cropped_template = template[y:y + height, x:x + width]
-                st.subheader("Cropped Template")
-                display_image(cropped_template, "Cropped Template for Matching")
+                display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    st.subheader("Matched Result")
-                    result_img = match_template(img.copy(), cropped_template)
+                    result_img = apply_sift_matching(img.copy(), cropped_template)
                     display_image(result_img, "Image with Matched Areas")
     else:
         st.warning("Please upload both images to proceed.")
