@@ -56,7 +56,7 @@ I wanna thank the developers and maintainers of these packages for their valuabl
 
 ## License
 
-This project is licensed under the Apache License - see the LICENSE file for details.
+This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
 
 ---
 Feel free to star this repository if you find it useful! For help and support, create an issue, and I'll get back to you.
