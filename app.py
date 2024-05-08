@@ -18,8 +18,8 @@ def display_image(image, title, box=None):
     """Display an image with a caption and optional bounding box."""
     st.image(image, caption=title, use_column_width=True)
 
-def apply_sift_matching(img, template, lowe_ratio):
-    """Apply SIFT matching between an image and a template, using a variable Lowe ratio."""
+def apply_sift_with_clustering(img, template, lowe_ratio):
+    """Apply SIFT matching with clustering to detect multiple occurrences."""
     sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
     keypoints2, descriptors2 = sift.detectAndCompute(template, None)
@@ -28,31 +28,31 @@ def apply_sift_matching(img, template, lowe_ratio):
 
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
 
-    st.write(f"Total matches found: {len(matches)}")
-    st.write(f"Good matches using Lowe's ratio: {len(good_matches)}")
-
-    match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
-
-    box_img = img.copy()
-    if len(good_matches) >= 10:  # Increased from 4 to 10
-        src_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
-        dst_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
-        matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        if matrix is not None and mask.sum() > 8:  # Check that a sufficient number of points agree
-            h, w = template.shape[:2]
-            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
-            dst = cv2.perspectiveTransform(pts, matrix)
-            box_img = cv2.polylines(box_img, [np.int32(dst)], True, (0, 255, 0), 3, cv2.LINE_AA)
-        else:
-            st.write("Homography could not be computed successfully or insufficient inliers.")
+    if len(good_matches) > 10:  # Sufficient matches to apply clustering
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        
+        # DBSCAN clustering
+        from sklearn.cluster import DBSCAN
+        clustering = DBSCAN(eps=30, min_samples=5).fit(src_pts.squeeze())
+        labels = clustering.labels_
+        
+        unique_labels = set(labels)
+        match_img = img.copy()
+        for k in unique_labels:
+            if k == -1:
+                continue  # Skipping noise
+            class_member_mask = (labels == k)
+            cluster_src = src_pts[class_member_mask].reshape(-1, 2)
+            x, y, w, h = cv2.boundingRect(cluster_src.astype(np.float32))
+            match_img = cv2.rectangle(match_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        return match_img
     else:
-        st.write(f"Not enough good matches are found - {len(good_matches)}/{10}")
-
-    return match_img, box_img
-
+        st.write(f"Not enough good matches are found - {len(good_matches)}/10")
+        return img
 
 def main():
-    st.title("Feature-Based Template Matching with Drawable Canvas")
+    st.title("Feature-Based Template Matching with Clustering and Drawable Canvas")
 
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
@@ -94,11 +94,9 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    matched_img, box_img = apply_sift_matching(img.copy(), cropped_template, lowe_ratio)
-                    st.subheader("Image with Match Points")
-                    display_image(matched_img, "Match Points Image")
-                    st.subheader("Image with Matched Area Box")
-                    display_image(box_img, "Bounding Box Image")
+                    matched_img = apply_sift_with_clustering(img, cropped_template, lowe_ratio)
+                    st.subheader("Image with Detected Matches")
+                    display_image(matched_img, "Detected Matches Image")
 
     else:
         st.warning("Please upload both images to proceed.")
