@@ -91,11 +91,11 @@ def main():
 
                 if st.button("Match Template"):
                     matched_img, box_img = apply_sift_matching(img.copy(), cropped_template)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        display_image(matched_img, "Image with Match Points")
-                    with col2:
-                        display_image(box_img, "Image with Matched Area Box")
+                    st.subheader("Image with Match Points")
+                    display_image(matched_img, "Match Points Image")
+                    st.subheader("Image with Matched Area Box")
+                    display_image(box_img, "Bounding Box Image")
+
     else:
         st.warning("Please upload both images to proceed.")
 
