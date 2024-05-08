@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 from PIL import Image
+from sklearn.cluster import KMeans
 from streamlit_drawable_canvas import st_canvas
 
 def load_image(image_file):
@@ -18,8 +19,8 @@ def display_image(image, title, box=None):
     """Display an image with a caption and optional bounding box."""
     st.image(image, caption=title, use_column_width=True)
 
-def apply_sift_with_clustering(img, template, lowe_ratio):
-    """Apply SIFT matching with clustering to detect multiple occurrences."""
+def apply_sift_and_cluster(img, template, lowe_ratio):
+    """Apply SIFT matching and clustering to find and highlight multiple instances of a template."""
     sift = cv2.SIFT_create()
     keypoints1, descriptors1 = sift.detectAndCompute(img, None)
     keypoints2, descriptors2 = sift.detectAndCompute(template, None)
@@ -28,31 +29,29 @@ def apply_sift_with_clustering(img, template, lowe_ratio):
 
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
 
-    if len(good_matches) > 10:  # Sufficient matches to apply clustering
-        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        
-        # DBSCAN clustering
-        from sklearn.cluster import DBSCAN
-        clustering = DBSCAN(eps=30, min_samples=5).fit(src_pts.squeeze())
-        labels = clustering.labels_
-        
-        unique_labels = set(labels)
-        match_img = img.copy()
-        for k in unique_labels:
-            if k == -1:
-                continue  # Skipping noise
-            class_member_mask = (labels == k)
-            cluster_src = src_pts[class_member_mask].reshape(-1, 2)
-            x, y, w, h = cv2.boundingRect(cluster_src.astype(np.float32))
-            match_img = cv2.rectangle(match_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        return match_img
-    else:
-        st.write(f"Not enough good matches are found - {len(good_matches)}/10")
-        return img
+    # Extract location of good matches
+    points = np.zeros((len(good_matches), 2), dtype=np.float32)
+    for i, match in enumerate(good_matches):
+        points[i, :] = keypoints1[match.queryIdx].pt
+
+    # Clustering of matched points
+    kmeans = KMeans(n_clusters=min(10, len(good_matches)//5), random_state=0).fit(points)
+    labels = kmeans.labels_
+
+    match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
+    box_img = img.copy()
+
+    # Draw clusters
+    for i in range(kmeans.n_clusters):
+        cluster_points = points[labels == i]
+        if len(cluster_points) > 3:
+            x, y, w, h = cv2.boundingRect(cluster_points)
+            cv2.rectangle(box_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    return match_img, box_img
 
 def main():
-    st.title("Feature-Based Template Matching with Clustering and Drawable Canvas")
+    st.title("Feature-Based Template Matching with Drawable Canvas and Clustering")
 
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
@@ -94,9 +93,11 @@ def main():
                 display_image(cropped_template, "Cropped Template")
 
                 if st.button("Match Template"):
-                    matched_img = apply_sift_with_clustering(img, cropped_template, lowe_ratio)
-                    st.subheader("Image with Detected Matches")
-                    display_image(matched_img, "Detected Matches Image")
+                    matched_img, box_img = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio)
+                    st.subheader("Image with Match Points")
+                    display_image(matched_img, "Match Points Image")
+                    st.subheader("Image with Matched Area Box")
+                    display_image(box_img, "Bounding Box Image")
 
     else:
         st.warning("Please upload both images to proceed.")
