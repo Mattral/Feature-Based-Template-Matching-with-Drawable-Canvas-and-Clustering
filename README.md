@@ -8,7 +8,7 @@ The application uses the adjusted Lowe ratio to match features and DBSCAN cluste
 
 latest ver -https://feature-based-template-matching.streamlit.app/
 
-old ver - https://match-img.streamlit.app/
+old ver - https://match-img.streamlit.app/ (without DBSCAN, very inefficient and traditional)
 
 ## Features
 
