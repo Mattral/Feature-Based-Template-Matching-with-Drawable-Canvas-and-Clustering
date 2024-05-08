@@ -2,7 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 from PIL import Image
-from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 from streamlit_drawable_canvas import st_canvas
 
 def load_image(image_file):
@@ -28,25 +28,30 @@ def apply_sift_and_cluster(img, template, lowe_ratio):
     matches = matcher.knnMatch(descriptors1, descriptors2, k=2)
 
     good_matches = [m for m, n in matches if m.distance < lowe_ratio * n.distance]
+    
+    if len(good_matches) < 4:
+        st.write("Not enough matches were found.")
+        return None, img
 
-    # Extract location of good matches
-    points = np.zeros((len(good_matches), 2), dtype=np.float32)
-    for i, match in enumerate(good_matches):
-        points[i, :] = keypoints1[match.queryIdx].pt
+    points = np.array([keypoints1[m.queryIdx].pt for m in good_matches], dtype=np.float32)
 
     # Clustering of matched points
-    kmeans = KMeans(n_clusters=min(10, len(good_matches)//5), random_state=0).fit(points)
-    labels = kmeans.labels_
+    dbscan = DBSCAN(eps=20, min_samples=3)  # tweak these parameters as needed
+    labels = dbscan.fit_predict(points)
 
     match_img = cv2.drawMatches(img, keypoints1, template, keypoints2, good_matches, None)
     box_img = img.copy()
 
-    # Draw clusters
-    for i in range(kmeans.n_clusters):
-        cluster_points = points[labels == i]
-        if len(cluster_points) > 3:
-            x, y, w, h = cv2.boundingRect(cluster_points)
-            cv2.rectangle(box_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    unique_labels = set(labels)
+    for label in unique_labels:
+        if label == -1:
+            continue  # Noise
+        class_member_mask = (labels == label)
+        xy = points[class_member_mask]
+        rect = cv2.minAreaRect(xy)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        cv2.drawContours(box_img, [box], 0, (0, 255, 0), 2)
 
     return match_img, box_img
 
@@ -94,10 +99,11 @@ def main():
 
                 if st.button("Match Template"):
                     matched_img, box_img = apply_sift_and_cluster(img.copy(), cropped_template, lowe_ratio)
-                    st.subheader("Image with Match Points")
-                    display_image(matched_img, "Match Points Image")
-                    st.subheader("Image with Matched Area Box")
-                    display_image(box_img, "Bounding Box Image")
+                    if matched_img is not None:
+                        st.subheader("Image with Match Points")
+                        display_image(matched_img, "Match Points Image")
+                        st.subheader("Image with Matched Area Box")
+                        display_image(box_img, "Bounding Box Image")
 
     else:
         st.warning("Please upload both images to proceed.")
