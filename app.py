@@ -32,8 +32,10 @@ def match_template(img, template):
     return img
 
 def main():
-    st.title("Template Matching with Drawable Canvas")
+    st.title("Interactive Template Matching")
 
+    # Upload sections in the sidebar
+    st.sidebar.header("Upload Images")
     img_file = st.sidebar.file_uploader("Upload your Image", type=["png", "jpg", "jpeg"])
     template_file = st.sidebar.file_uploader("Upload your Template Image", type=["png", "jpg", "jpeg"])
 
@@ -41,20 +43,23 @@ def main():
         img = load_image(img_file)
         template = load_image(template_file)
 
-        display_image(img, "Uploaded Image")
-        display_image(template, "Uploaded Template")
+        st.subheader("Uploaded Images")
+        col1, col2 = st.columns(2)
+        with col1:
+            display_image(img, "Original Image")
+        with col2:
+            display_image(template, "Template Image")
 
         # Setup canvas for user cropping
         st.subheader("Draw cropping area on the template:")
-        canvas_width, canvas_height = template.shape[1], template.shape[0]
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent fill color
             stroke_width=2,
             stroke_color="#FFFFFF",
             background_image=Image.fromarray(template),
             update_streamlit=True,
-            height=canvas_height,
-            width=canvas_width,
+            height=template.shape[0],
+            width=template.shape[1],
             drawing_mode="rect",
             key="canvas",
         )
@@ -68,10 +73,12 @@ def main():
                 width = int(rect['width'])
                 height = int(rect['height'])
                 cropped_template = template[y:y + height, x:x + width]
-                display_image(cropped_template, "Cropped Template")
+                st.subheader("Cropped Template")
+                display_image(cropped_template, "Cropped Template for Matching")
 
                 if st.button("Match Template"):
-                    result_img = match_template(img.copy(), cropped_template)  # Use copy of image for drawing
+                    st.subheader("Matched Result")
+                    result_img = match_template(img.copy(), cropped_template)
                     display_image(result_img, "Image with Matched Areas")
     else:
         st.warning("Please upload both images to proceed.")
