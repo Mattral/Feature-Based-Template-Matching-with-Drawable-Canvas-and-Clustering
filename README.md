@@ -1,4 +1,4 @@
-# Feature-Based Template Matching with Drawable Canvas and Clustering
+# Feature-Based Template Matching(SIFT) with Drawable Canvas and Clustering (DBSCAN)
 
 This repository contains a Streamlit application that demonstrates feature-based template matching using the SIFT (Scale-Invariant Feature Transform) algorithm, enhanced with DBSCAN clustering for robust localization. 
 
